@@ -310,8 +310,7 @@ context "A Node used with OrderedTree should" do
     c._lr.should.equal [5, 6]
   end
   
-  #specify "support promote_to_root" do
-  def test_promote_to_root
+  specify "support promote_to_root" do
     a, b = emit_many(2)
     c = emit(:name => "Subtree", :parent_id => a.id)
     
