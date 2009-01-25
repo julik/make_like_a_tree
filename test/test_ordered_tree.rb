@@ -326,14 +326,14 @@ context "A Node used with OrderedTree should" do
     c._lr.should.blaming("now promoted to root").equal [7, 8]
   end
   
-  xspecify "support replanting by changing parent_id" do
+  specify "support replanting by changing parent_id" do
     a, b = emit_many(2)
     sub = emit :name => "Child", :parent_id => a.id
     sub.update_attributes(:parent_id => b.id)
 
     reload(a, b, sub)
-    a.all_children.should.not.include sub
-    b.all_children.should.include sub
+    a.all_children.should.blaming("replanted branch from there").not.include( sub)
+    b.all_children.should.blaming("replanted branch here").include( sub)
   end
   
   def emit(attributes = {})

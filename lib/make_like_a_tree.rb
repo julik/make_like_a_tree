@@ -41,6 +41,9 @@ module Julik
         
         after_create :apply_parenting_after_create
         
+       # before_update :register_parent_id_before_update, :unless => :new_record?
+      #  after_update :replant_after_update
+        
         # TODO: refactor for class << self
         class_eval <<-EOV
           include Julik::MakeLikeTree::InstanceMethods
@@ -157,7 +160,7 @@ module Julik
       
       # Override ActiveRecord::Base#reload to blow over all the memoized values
       def reload(*any_arguments)
-        @index_in_parent, @is_root, @is_child = nil, nil, nil
+        @index_in_parent, @is_root, @is_child, @old_parent_id, @rerooted = nil, nil, nil, nil, nil
         super
       end
       
@@ -324,11 +327,6 @@ module Julik
         )
       end
       
-      def register_parent_id_before_update 
-        @old_parent_id = self.class.connection.select_value("#{parent_column} WHERE id = #{self.id}")
-        true
-      end
-      
       # Make this item a root node
       def promote_to_root
         transaction do
@@ -357,14 +355,21 @@ module Julik
         true
       end
       
+      def register_parent_id_before_update 
+        @old_parent_id = self.class.connection.select_value("SELECT #{parent_column} FROM #{self.class.table_name} WHERE id = #{self.id}")
+        true
+      end
+      
       def replant_after_update
-        if (@old_parent_id != self[parent_column])
-          # If the new parent_id is nil, it means we are promoted to woot node
-          if self[parent_column].nil?
-            promote_to_root
-          end
-          save
+        if @old_parent_id.nil? || (@old_parent_id == self[parent_column])
+          return true
+        # If the new parent_id is nil, it means we are promoted to woot node
+        elsif self[parent_column].nil? || self[parent_column].zero?
+          promote_to_root
+        else
+          self.class.find(self[parent_column]).add_child(self)
         end
+
         true
       end
       
