@@ -115,7 +115,7 @@ context "A Node used with OrderedTree should" do
     end
   end
   
-  specify "properly shift siblings to the right on child assignment to their left neighbour" do
+  specify "shift siblings to the right on child assignment to their left neighbour" do
     root_node = emit :name => "Root one"
     
     sub_node = emit :name => "Child 1", :parent_id => root_node.id
@@ -140,7 +140,7 @@ context "A Node used with OrderedTree should" do
     b.root_id.should.equal b.id
   end
   
-  specify "properly replant a branch" do
+  specify "replant a branch" do
     root_node_1 = emit :name => "First root"
     root_node_2 = emit :name => "Second root"
     root_node_3 = emit :name => "Third root"
@@ -163,7 +163,7 @@ context "A Node used with OrderedTree should" do
     root_node_2._lr.should.blaming("shifted right to make room").equal [9, 10]
   end
   
-  specify "properly report size after moving a branch from underneath" do
+  specify "report size after moving a branch from underneath" do
     root_node_1 = emit :name => "First root"
     root_node_2 = emit :name => "First root"
     
@@ -181,7 +181,7 @@ context "A Node used with OrderedTree should" do
     root_node_1.child_count.should.blaming("now has one child").equal 1
   end
   
-  specify "properly return siblings" do
+  specify "return siblings" do
     root_1 = emit :name => "Foo"
     root_2 = emit :name => "Bar"
     
@@ -191,7 +191,7 @@ context "A Node used with OrderedTree should" do
     root_2.siblings.should.equal [root_1]
   end
   
-  specify "properly return siblings and self" do
+  specify "return siblings and self" do
     root_1 = emit :name => "Foo"
     root_2 = emit :name => "Bar"
     
