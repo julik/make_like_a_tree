@@ -310,18 +310,20 @@ context "A Node used with OrderedTree should" do
     c._lr.should.equal [5, 6]
   end
   
-  specify "support promote_to_root" do
+  #specify "support promote_to_root" do
+  def test_promote_to_root
     a, b = emit_many(2)
     c = emit(:name => "Subtree", :parent_id => a.id)
     
     reload(a, b, c)
+    $l = true
     c.promote_to_root
     
     reload(a, b, c)
     
     c.depth.should.blaming("is at top level").equal 0
     c.root_id.should.blaming("is now self-root").equal c.id
-    c._lr.should.blaming("now promoted to root").equal [9, 10]
+    c._lr.should.blaming("now promoted to root").equal [7, 8]
   end
   
   xspecify "support replanting by changing parent_id" do

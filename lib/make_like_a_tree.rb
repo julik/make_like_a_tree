@@ -39,7 +39,7 @@ module Julik
           scope_condition_method = "def scope_condition() \"#{configuration[:scope]}\" end"
         end
         
-        after_create :assign_default_left_and_right
+        after_create :apply_parenting_after_create
         
         # TODO: refactor for class << self
         class_eval <<-EOV
@@ -177,27 +177,29 @@ module Julik
         !root? && !child?
       end
       
-      # Place the item to the appropriate place as a root item
-      def assign_default_left_and_right(with_space_inside = 0)
-        self.reload # Reload to bring in the id
-        
-        # Instead of creating nodes with 0,0 
-        # make this a root node BY DEFAULT even if no children are specified
-        self[root_column] = self.id
-        last_root_node = self.class.find(:first, :conditions => "#{scope_condition} AND #{parent_column} = 0 AND id != #{self.id}",
-          :order => "#{right_col_name} DESC", :limit => 1)
-          
-        offset = last_root_node ? last_root_node[right_col_name] : 0
-        
-        self[left_col_name], self[right_col_name] = (offset+1), (offset + with_space_inside + 2)
+      # Used as an after_create callback to apply the parent_id assignment or create a root node
+      def apply_parenting_after_create
+        reload # Reload to bring in the id
+        assign_default_left_and_right
         self.save
-        
         unless self[parent_column].to_i.zero?
           # Load the parent
           parent = self.class.find(self[parent_column])
           parent.add_child self
         end
         true
+      end
+      
+      # Place the item to the appropriate place as a root item
+      def assign_default_left_and_right(with_space_inside = 0)
+        
+        # Instead of creating nodes with 0,0 make this a root node BY DEFAULT even if no children are specified
+        self[root_column] = self.id
+        last_root_node = self.class.find(:first, :conditions => "#{scope_condition} AND #{parent_column} = 0 AND id != #{self.id}",
+          :order => "#{right_col_name} DESC", :limit => 1)
+        offset = last_root_node ? last_root_node[right_col_name] : 0
+        
+        self[left_col_name], self[right_col_name] = (offset+1), (offset + with_space_inside + 2)
       end
       
       # Shortcut for self[depth_column]
@@ -329,24 +331,29 @@ module Julik
       
       # Make this item a root node
       def promote_to_root
-        my_width = child_count * 2
+        transaction do
+          my_width = child_count * 2
         
-        old_left, old_right = self[left_col_name], self[right_col_name]
-        assign_default_left_and_right(my_width)
+          # Stash the values because assign_default_left_and_right reassigns them
+          old_left, old_right, old_root = self[left_col_name], self[right_col_name], self[root_column]
+          self[parent_column] = 0 # Signal the root node
         
-        move_by = self[left_col_name] - old_left
-        move_depth_by = self[depth_column]
+          assign_default_left_and_right(my_width)
+          
+          move_by = self[left_col_name] - old_left
+          move_depth_by = self[depth_column]
         
-        # bring the child and its grandchildren over
-        self.class.update_all( 
-          "#{depth_column} = #{depth_column} - #{move_depth_by}," +
-          "#{root_column} = #{self.id}," +
-          "#{left_col_name} = #{left_col_name} + #{move_by}," +
-          "#{right_col_name} = #{right_col_name} + #{move_by}",
-          "#{scope_condition} AND #{left_col_name} >= #{old_left} AND #{right_col_name} <= #{old_right}" +
-          " AND #{root_column} = #{self[root_column]}"
-        )
-        self.reload
+          # bring the child and its grandchildren over
+          self.class.update_all( 
+            "#{depth_column} = #{depth_column} - #{move_depth_by}," +
+            "#{root_column} = #{self.id}," +
+            "#{left_col_name} = #{left_col_name} + #{move_by}," +
+            "#{right_col_name} = #{right_col_name} + #{move_by}",
+            "#{scope_condition} AND #{left_col_name} >= #{old_left} AND #{right_col_name} <= #{old_right}" +
+            " AND #{root_column} = #{old_root}"
+          )
+          self.reload
+        end
         true
       end
       
