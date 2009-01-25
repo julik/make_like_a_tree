@@ -1,6 +1,6 @@
 module Julik
   module MakeLikeTree
-    VERSION = '1.0.0'
+    VERSION = '1.0.1'
     def self.included(base) #:nodoc:
       super
       base.extend(ClassMethods)
