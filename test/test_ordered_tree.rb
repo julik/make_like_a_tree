@@ -93,6 +93,7 @@ context "A Node used with OrderedTree should" do
     
     reload(root_node, child_node)
     
+    root_node.child_can_be_added?(child_node).should.blaming("possible move").equal true
     root_node._lr.should.blaming("root node with one subset is 1,4").equal [1, 4]
     child_node._lr.should.blaming("first in nested range is 2,3").equal [2, 3]
   end
@@ -308,6 +309,16 @@ context "A Node used with OrderedTree should" do
     a._lr.should.equal [3, 4]
     b._lr.should.equal [1, 2]
     c._lr.should.equal [5, 6]
+  end
+  
+  specify "should not allow reparenting an item into its child" do
+    root = emit :name => "foo"
+    child = emit :name => "bar", :parent_id => root.id
+    reload(root, child)
+    
+    child.child_can_be_added?(root).should.blaming("Impossible move").equal false
+    lambda { child.add_child!(root)}.should.raise(Julik::MakeLikeTree::ImpossibleReparent)
+    child.add_child(root).should.equal false
   end
   
   specify "support promote_to_root" do

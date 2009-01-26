@@ -1,6 +1,9 @@
 module Julik
   module MakeLikeTree
-    VERSION = '1.0.1'
+    class ImpossibleReparent < RuntimeError
+    end
+    
+    VERSION = '1.0.2'
     def self.included(base) #:nodoc:
       super
       base.extend(ClassMethods)
@@ -215,7 +218,25 @@ module Julik
       # other elements in the tree and shift them to the right, keeping everything
       # balanced.
       def add_child(child)
-        child.reload # Pull in the id
+        begin
+          add_child!(child)
+        rescue ImpossibleReparent
+          false
+        end
+      end
+      
+      # Tells you if a reparent might be invalid
+      def child_can_be_added?(child)
+        impossible = (child[root_column] == self[root_column] && 
+          child[left_col_name] < self[left_col_name]) && 
+          (child[right_col_name] > self[right_col_name])
+        !impossible
+      end
+      
+      # A noisy version of add_child, will raise an ImpossibleReparent if you try to reparent a node onto its indirect child
+      def add_child!(child)
+        raise ImpossibleReparent, "Cannot reparent #{child} onto its child node #{self}" unless child_can_be_added?(child)
+
         k = self.class
         
         new_left, new_right = determine_range_for_child(child)
