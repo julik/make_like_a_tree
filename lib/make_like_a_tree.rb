@@ -158,7 +158,8 @@ module Julik
       
       # Override ActiveRecord::Base#reload to blow over all the memoized values
       def reload(*any_arguments)
-        @index_in_parent, @is_root, @is_child, @old_parent_id, @rerooted = nil, nil, nil, nil, nil
+        @index_in_parent, @is_root, @is_child, 
+          @old_parent_id, @rerooted, @child_count = nil, nil, nil, nil, nil, nil
         super
       end
       
@@ -291,7 +292,7 @@ module Julik
       # Returns the number of children and grandchildren of this object
       def child_count
         return 0 unless might_have_children? # optimization shortcut
-        self.class.count_by_sql("SELECT COUNT(id) FROM #{self.class.table_name} WHERE #{conditions_for_all_children}")
+        @child_count ||= self.class.scoped(scope_hash_for_branch).count
       end
       alias_method :children_count, :child_count
       

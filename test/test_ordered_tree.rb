@@ -177,7 +177,8 @@ context "A Node used with OrderedTree should" do
     
     # Now replant the child
     root_node_1.add_child(child)
-
+    reload(root_node_1, root_node_2)
+    
     root_node_2.child_count.should.blaming("all children removed").be.zero
     root_node_1.child_count.should.blaming("now has one child").equal 1
   end
