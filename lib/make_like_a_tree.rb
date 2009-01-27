@@ -304,13 +304,15 @@ module Julik
         (self[right_col_name] - self[left_col_name]) > 1
       end
       
-      # Returns a set of itself and all of its nested children
+      # Returns a set of itself and all of its nested children. Any additional
+      # options scope the find call.
       def full_set(extras = {})
-        [self] + all_children
+        [self] + all_children(extras)
       end
       alias_method :all_children_and_self, :full_set
 
-      # Returns a set of all of its children and nested children
+      # Returns a set of all of its children and nested children. Any additional
+      # options scope the find call.
       def all_children(extras = {})
         return [] unless might_have_children? # optimization shortcut
         self.class.scoped(scope_hash_for_branch).find(:all, extras)
@@ -348,13 +350,14 @@ module Julik
         self.class.find(:all, :conditions => conditions_for_self_and_siblings, :order => "#{left_col_name} ASC")
       end
       
-      # Returns a set of only this entry's immediate children, also ordered by position
+      # Returns a set of only this entry's immediate children, also ordered by position. Any additional
+      # options scope the find call.
       def direct_children(extras = {})
         return [] unless might_have_children? # optimize!
         self.class.scoped(scope_hash_for_direct_children).find(:all, extras)
       end
       
-      # Make this item a root node
+      # Make this item a root node (moves it to the end of the root node list in the same scope)
       def promote_to_root
         transaction do
           my_width = child_count * 2
