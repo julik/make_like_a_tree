@@ -106,8 +106,6 @@ module Julik
             
             unless shift.zero? # Optimize - do not move nodes that stay in the same place
               condition_stmt = "#{left_col_name} >= #{e[left_col_name]} AND #{right_col_name} <= #{e[right_col_name]}"
-              value_stmt_left = "#{left_col_name} + #{shift}"
-              value_stmt_right = "#{right_col_name} + #{shift}"
           
               left_remaps.unshift(
                 "WHEN (#{condition_stmt}) THEN (#{left_col_name} + #{shift})"
