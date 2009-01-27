@@ -300,7 +300,10 @@ module Julik
       end
       alias_method :children_count, :child_count
       
-      # Shortcut to determine if our left and right values allow for possible children
+      # Shortcut to determine if our left and right values allow for possible children.
+      # Note the difference in wording between might_have and has - if this method returns false,
+      # it means you should look no further. If it returns true, you should really examine
+      # the children to be sure
       def might_have_children?
         (self[right_col_name] - self[left_col_name]) > 1
       end

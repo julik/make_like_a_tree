@@ -59,7 +59,11 @@ Add a bare init file to your app and there:
   require 'make_like_tree'
   Julik::MakeLikeTree.bootstrap!
 
-That way you can keep the plugin in gems. Or just vendorize it, it has a built-in init.rb
+Or just vendorize it, it has a built-in init.rb. You can also use the
+plugin without unpacking it, to do so put the following in the config:
+
+  config.gem "make_like_a_tree"
+  config.after_initialize { Julik::MakeLikeTree.bootstrap! }
 
 == LICENSE:
 
