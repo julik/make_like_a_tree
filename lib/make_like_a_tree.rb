@@ -4,12 +4,22 @@ module Julik
     end
     
     VERSION = '1.0.3'
+    DEFAULTS = { 
+      :root_column => "root_id", 
+      :parent_column => "parent_id", 
+      :left_column => "lft", 
+      :right_column => "rgt", 
+      :depth_column => 'depth', 
+      :scope => "(1=1)"
+    }
+    
     def self.included(base) #:nodoc:
       super
       base.extend(ClassMethods)
     end
-      
-    # Injects the module into ActiveRecord
+    
+    # Injects the module into ActiveRecord. Can (and should) be used in config.after_initialize
+    # block of the app
     def self.bootstrap!
       ::ActiveRecord::Base.send :include, self
     end
@@ -24,10 +34,12 @@ module Julik
       # * +depth+ - column name used to track the depth in the branch, default "depth"
       # * +scope+ - adds an additional contraint on the threads when searching or updating
       def make_like_a_tree(options = {})
-        configuration = { :root_column => "root_id", :parent_column => "parent_id", :left_column => "lft", :right_column => "rgt", :depth_column => 'depth', :scope => "(1=1)" }
-        configuration.update(options) if options.is_a?(Hash)
-        configuration[:scope] = "#{configuration[:scope]}_id".intern if configuration[:scope].is_a?(Symbol) && configuration[:scope].to_s !~ /_id$/
-
+        configuration = DEFAULTS.dup.merge(options)
+        
+        if configuration[:scope].is_a?(Symbol) && configuration[:scope].to_s !~ /_id$/
+          configuration[:scope] = "#{configuration[:scope]}_id".intern 
+        end
+        
         if configuration[:scope].is_a?(Symbol)
           scope_condition_method = %(
             def scope_condition
@@ -46,7 +58,7 @@ module Julik
         
         
        # before_update :register_parent_id_before_update, :unless => :new_record?
-      #  after_update :replant_after_update
+       # after_update :replant_after_update
         
         # TODO: refactor for class << self
         class_eval <<-EOV
