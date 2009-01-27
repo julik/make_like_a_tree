@@ -321,6 +321,30 @@ context "A Node used with OrderedTree should" do
     child.add_child(root).should.equal false
   end
   
+  specify "support additional find options via scoped finds on all_children" do
+    root = emit :name => "foo"
+    child = emit :name => "bar", :parent_id => root.id
+    another_child = emit :name => "another", :parent_id => root.id
+    
+    reload(root)
+
+    root.all_children.should.equal [child, another_child]
+    root.all_children(:conditions => {:name => "another"}).should.equal [another_child]
+  end
+  
+  specify "support additional find options via scoped finds on direct_children" do
+    root = emit :name => "foo"
+    anoter_root = emit :name => "another"
+    
+    child = emit :name => "bar", :parent_id => root.id
+    another_child = emit :name => "another", :parent_id => root.id
+    
+    reload(root)
+
+    root.direct_children.should.equal [child, another_child]
+    root.direct_children(:conditions => {:name => "another"}).should.equal [another_child]
+  end
+  
   specify "support promote_to_root" do
     a, b = emit_many(2)
     c = emit(:name => "Subtree", :parent_id => a.id)

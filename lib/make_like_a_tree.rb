@@ -3,7 +3,7 @@ module Julik
     class ImpossibleReparent < RuntimeError
     end
     
-    VERSION = '1.0.2'
+    VERSION = '1.0.3'
     def self.included(base) #:nodoc:
       super
       base.extend(ClassMethods)
@@ -43,6 +43,7 @@ module Julik
         end
         
         after_create :apply_parenting_after_create
+        
         
        # before_update :register_parent_id_before_update, :unless => :new_record?
       #  after_update :replant_after_update
@@ -309,15 +310,25 @@ module Julik
       end
       
       # Returns a set of itself and all of its nested children
-      def full_set
+      def full_set(extras = {})
         [self] + all_children
       end
       alias_method :all_children_and_self, :full_set
 
       # Returns a set of all of its children and nested children
-      def all_children
+      def all_children(extras = {})
         return [] unless might_have_children? # optimization shortcut
-        self.class.find(:all, :conditions => conditions_for_all_children, :order => "#{left_col_name} ASC")
+        self.class.scoped(scope_hash_for_branch).find(:all, extras)
+      end
+      
+      # Returns scoping options suitable for fetching all children
+      def scope_hash_for_branch
+        {:conditions => conditions_for_all_children, :order => "#{left_col_name} ASC" }
+      end
+      
+      # Returns scopint options suitable for fetching direct children
+      def scope_hash_for_direct_children
+        {:conditions => "#{scope_condition} AND #{parent_column} = #{self.id}", :order => "#{left_col_name} ASC"}
       end
       
       # Get conditions for direct and indirect children of this record
@@ -343,12 +354,9 @@ module Julik
       end
       
       # Returns a set of only this entry's immediate children, also ordered by position
-      def direct_children
+      def direct_children(extras = {})
         return [] unless might_have_children? # optimize!
-        self.class.find(:all, 
-          :conditions => "#{scope_condition} AND #{parent_column} = #{self.id}",
-          :order => 'lft ASC'
-        )
+        self.class.scoped(scope_hash_for_direct_children).find(:all, extras)
       end
       
       # Make this item a root node
