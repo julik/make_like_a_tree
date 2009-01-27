@@ -362,7 +362,6 @@ context "A Node used with OrderedTree should" do
     c = emit(:name => "Subtree", :parent_id => a.id)
     
     reload(a, b, c)
-    $l = true
     c.promote_to_root
     
     reload(a, b, c)
