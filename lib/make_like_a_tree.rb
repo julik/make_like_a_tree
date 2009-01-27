@@ -117,11 +117,7 @@ module Julik
           end
         
           # If we are not a root node, scope the changes to our subtree only - this will win us some less writes
-          update_condition = if root?
-            scope_condition
-          else
-            "#{scope_condition} AND #{root_column} = #{self[root_column]}"
-          end
+          update_condition = root? ? scope_condition : "#{scope_condition} AND #{root_column} = #{self[root_column]}"
           
           self.class.update_all(
             "#{left_col_name} = CASE #{left_remaps.join(' ')} ELSE #{left_col_name} END, " + 
