@@ -169,10 +169,10 @@ module Julik
       end
       
       # Override ActiveRecord::Base#reload to blow over all the memoized values
-      def reload(*any_arguments)
+      def reload(options = nil)
         @index_in_parent, @is_root, @is_child, 
           @old_parent_id, @rerooted, @child_count = nil, nil, nil, nil, nil, nil
-        super
+        super(options)
       end
       
       # Returns true is this is a root thread.
