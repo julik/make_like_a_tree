@@ -38,6 +38,11 @@ Thanks to the authors of acts_as_threaded, awesome_nested_set, better_nested_set
   
   class NodeOfThatUbiquitousCms < ActiveRecord::Base
     make_like_a_tree
+    
+    # Handy for selects and tree text
+    def indented_name
+      ["-" * depth.to_i, name].join
+    end
   end
   
 == REQUIREMENTS:
