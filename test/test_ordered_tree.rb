@@ -109,6 +109,14 @@ context "A new Node should", NodeTest do
     Node.new.move_to(10).should.equal false
   end
   
+  specify "not allow add_child" do
+    Node.new.add_child(Node.new).should.equal false
+  end
+
+  specify "not be accepted for add_child" do
+    emit(:name => "Foo").add_child(Node.new).should.equal false
+  end
+  
   specify "identify itself as root if parent is zero or nil" do
     Node.new.should.be.root
     Node.new.should.not.be.child

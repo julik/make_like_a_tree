@@ -241,11 +241,13 @@ module Julik
         impossible = (child[root_column] == self[root_column] && 
           child[left_col_name] < self[left_col_name]) && 
           (child[right_col_name] > self[right_col_name])
+        
         !impossible
       end
       
       # A noisy version of add_child, will raise an ImpossibleReparent if you try to reparent a node onto its indirect child
       def add_child!(child)
+        return false if (new_record? || child.new_record?)
         raise ImpossibleReparent, "Cannot reparent #{child} onto its child node #{self}" unless child_can_be_added?(child)
 
         k = self.class
