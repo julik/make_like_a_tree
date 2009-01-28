@@ -28,8 +28,8 @@ ActiveRecord::Schema.define do
   end
 end
 
-context "A Node used with OrderedTree should" do
-  
+class NodeTest < Test::Unit::TestCase
+
   class Node < ActiveRecord::Base
     set_table_name "nodes"
     make_like_a_tree :scope => :project
@@ -38,9 +38,54 @@ context "A Node used with OrderedTree should" do
     end
   end
   
-  before do
-    Node.delete_all
+  def emit(attributes = {})
+    Node.create!({:project_id => 1}.merge(attributes))
   end
+  
+  def emit_many(how_many, extras = {})
+    (1..how_many).map{|i| emit({:name => "Item_#{i}"}.merge(extras)) }
+  end
+
+  def reload(*all)
+    all.flatten.map(&:reload)
+  end
+  
+  def setup
+    Node.delete_all
+    super
+  end
+  
+  # Silence!
+  def default_test; end
+end
+
+context "A Node with attributes that change in flight should", NodeTest do
+  specify "return same siblings no matter what parent_id the record has assigned" do
+    node1, node2, node3 = emit_many(3)
+    reload(node1, node2, node3)
+    
+    node1.parent_id = 100
+    node2.parent_id = 300
+    node3.parent_id = 600
+    
+    node1.siblings.should.equal [node2, node3]
+  end
+  
+  specify "return same all_children no matter what left and right the record has assigned" do
+    node1, node2, node3 = emit_many(3)
+    children = emit_many(10, :parent_id => node1.id)
+    
+    reload(node1)
+    node1.all_children.should.equal children
+    
+    node1.lft, node1.rgt, node1.depth, node1.root_id = 300, 400, 23, 67
+    
+    node1.all_children.should.equal children
+  end
+end
+
+context "A Node used with OrderedTree should", NodeTest do
+  Node = NodeTest::Node
   
   specify "support full_set" do
     folder1, folder2 = emit(:name => "One"), emit(:name => "Two")
@@ -381,15 +426,4 @@ context "A Node used with OrderedTree should" do
     b.all_children.should.blaming("replanted branch here").include( sub)
   end
   
-  def emit(attributes = {})
-    Node.create!({:project_id => 1}.merge(attributes))
-  end
-  
-  def emit_many(how_many, extras = {})
-    (1..how_many).map{|i| emit({:name => "Item_#{i}"}.merge(extras)) }
-  end
-
-  def reload(*all)
-    all.flatten.map(&:reload)
-  end
 end

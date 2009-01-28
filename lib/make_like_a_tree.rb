@@ -342,19 +342,28 @@ module Julik
       
       # Get conditions for direct and indirect children of this record
       def conditions_for_all_children
-        "#{scope_condition} AND #{root_column} = #{self[root_column]} AND " +
-        "#{depth_column} > #{self[depth_column]} AND " +
-        "#{left_col_name} > #{self[left_col_name]} AND #{right_col_name} < #{self[right_col_name]}"
+        pk = "#{self.class.table_name} WHERE id = #{self.id}"
+        inner_r  = "(SELECT #{root_column}    FROM #{pk})"
+        inner_d  = "(SELECT #{depth_column}   FROM #{pk})"
+        inner_l  = "(SELECT #{left_col_name}  FROM #{pk})"
+        inner_r  = "(SELECT #{right_col_name} FROM #{pk})"
+        inner_rt = "(SELECT #{root_column} FROM #{pk})"
+        
+        "#{scope_condition} AND #{inner_rt} AND " +
+        "#{depth_column} > #{inner_d} AND " +
+        "#{left_col_name} > #{inner_l} AND #{right_col_name} < #{inner_r}"
       end
       
       # Get conditions to find myself and my siblings
       def conditions_for_self_and_siblings
-        "#{scope_condition} AND #{parent_column} = #{self[parent_column]}"
+        inner_select = "SELECT %s FROM %s WHERE id = %d" % [parent_column, self.class.table_name, id]
+        "#{scope_condition} AND #{parent_column} = (#{inner_select})"
       end
       
       # Get immediate siblings, ordered
       def siblings
-        self.class.find(:all, :conditions => "#{conditions_for_self_and_siblings} AND id != #{self.id}", :order => "#{left_col_name} ASC")
+        self.class.find(:all, :conditions => "#{conditions_for_self_and_siblings} AND id != #{self.id}", 
+          :order => "#{left_col_name} ASC")
       end
       
       # Get myself and siblings, ordered
