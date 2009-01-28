@@ -246,7 +246,7 @@ module Julik
       end
       
       # A noisy version of add_child, will raise an ImpossibleReparent if you try to reparent a node onto its indirect child.
-      # Will return false if either of the records is a new record
+      # Will return false if either of the records is a new record. Will reload both the parent and the child record
       def add_child!(child)
         return false if (new_record? || child.new_record?)
         raise ImpossibleReparent, "Cannot reparent #{child} onto its child node #{self}" unless child_can_be_added?(child)
@@ -309,7 +309,8 @@ module Julik
       
       # Returns the number of children and grandchildren of this object
       def child_count
-        return 0 unless might_have_children? # optimization shortcut
+        return 0 unless (!new_record? && might_have_children?) # shortcut
+        
         @child_count ||= self.class.scoped(scope_hash_for_branch).count
       end
       alias_method :children_count, :child_count

@@ -25,6 +25,7 @@ Thanks to the authors of acts_as_threaded, awesome_nested_set, better_nested_set
 
 == FEATURES/PROBLEMS:
 
+* Currently there is no clean way to change the column you scope on
 * Use create with parent_id set to the parent id (obvious, but somehow blocked in awesome_nested_set)
 * Ugly SQL
 * The node counts are currently not updated when a node is removed from a subtree and replanted elsewhere, 
