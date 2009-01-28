@@ -245,7 +245,8 @@ module Julik
         !impossible
       end
       
-      # A noisy version of add_child, will raise an ImpossibleReparent if you try to reparent a node onto its indirect child
+      # A noisy version of add_child, will raise an ImpossibleReparent if you try to reparent a node onto its indirect child.
+      # Will return false if either of the records is a new record
       def add_child!(child)
         return false if (new_record? || child.new_record?)
         raise ImpossibleReparent, "Cannot reparent #{child} onto its child node #{self}" unless child_can_be_added?(child)

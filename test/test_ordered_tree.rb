@@ -115,6 +115,7 @@ context "A new Node should", NodeTest do
 
   specify "not be accepted for add_child" do
     emit(:name => "Foo").add_child(Node.new).should.equal false
+    Node.new.add_child(Node.new).should.equal false
   end
   
   specify "identify itself as root if parent is zero or nil" do
