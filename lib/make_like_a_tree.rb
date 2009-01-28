@@ -81,6 +81,8 @@ module Julik
       # Move the item to a specific index within the range of it's siblings. Used to reorder lists.
       # Will cause a cascading update on the neighbouring items and their children, but the update will be scoped
       def move_to(idx)
+        return false if new_record?
+        
         transaction do 
           # Take a few shortcuts to avoid extra work
           cur_idx = index_in_parent
@@ -102,34 +104,41 @@ module Julik
           range.compact! # If we inserted something outside of range and created empty slots
         
           # Now remap segements
-          left_remaps, right_remaps = [], []
+          left_remaps, right_remaps, mini_scopes = [], [], ["(1=0)"]
         
-          # Exhaust the range starting with the last element, determining a remap on the fly
+          # Exhaust the range starting with the last element, determining the remapped offset
+          # based on the width of remaining sets
           while range.any?
             e = range.pop
-          
+            
             w = (e[right_col_name] - e[left_col_name])
 
-            # Determine by how many we need to shift the adjacent keys to put this item into place
+            # Determine by how many we need to shift the adjacent keys to put this item into place.
+            # On every iteration add 1 (the formal increment in a leaf node)
             offset_in_range = range.inject(0) do | sum, item_before |
               sum + item_before[right_col_name] - item_before[left_col_name] + 1
             end
             shift = offset_in_range - e[left_col_name] + 1
             
-            unless shift.zero? # Optimize - do not move nodes that stay in the same place
-              condition_stmt = "#{left_col_name} >= #{e[left_col_name]} AND #{right_col_name} <= #{e[right_col_name]}"
-          
-              left_remaps.unshift(
-                "WHEN (#{condition_stmt}) THEN (#{left_col_name} + #{shift})"
-              )
-              right_remaps.unshift(
-                "WHEN (#{condition_stmt}) THEN (#{right_col_name} + #{shift})"
-              )
-            end
+             # Optimize - do not move nodes that stay in the same place
+            next if shift.zero?
+
+            case_stmt = "#{left_col_name} >= #{e[left_col_name]} AND #{right_col_name} <= #{e[right_col_name]}"
+            
+            # Scoping our query by the mini-scope will help us avoid a table scan in some situations
+            mini_scopes << case_stmt
+            
+            left_remaps.unshift(
+              "WHEN (#{case_stmt}) THEN (#{left_col_name} + #{shift})"
+            )
+            right_remaps.unshift(
+              "WHEN (#{case_stmt}) THEN (#{right_col_name} + #{shift})"
+            )
           end
         
           # If we are not a root node, scope the changes to our subtree only - this will win us some less writes
           update_condition = root? ? scope_condition : "#{scope_condition} AND #{root_column} = #{self[root_column]}"
+          update_condition << " AND (#{mini_scopes.join(" OR ")})"
           
           self.class.update_all(
             "#{left_col_name} = CASE #{left_remaps.join(' ')} ELSE #{left_col_name} END, " + 
@@ -195,8 +204,9 @@ module Julik
       def apply_parenting_after_create
         reload # Reload to bring in the id
         assign_default_left_and_right
+        
         self.save
-        unless self[parent_column].to_i.zero?
+        unless self[parent_column].to_i.zero? # will also capture nil
           # Load the parent
           parent = self.class.find(self[parent_column])
           parent.add_child self
@@ -206,15 +216,12 @@ module Julik
       
       # Place the item to the appropriate place as a root item
       def assign_default_left_and_right(with_space_inside = 0)
-        
-        # Instead of creating nodes with 0,0 make this a root node BY DEFAULT even if no children are specified
+        # Make a self root and assign left and right respectively
+        # even if no children are specified
         self[root_column] = self.id
-        last_root_node = self.class.find(:first, :conditions => "#{scope_condition} AND #{parent_column} = 0 AND id != #{self.id}",
-          :order => "#{right_col_name} DESC", :limit => 1)
-        offset = last_root_node ? last_root_node[right_col_name] : 0
-        
-        self[left_col_name], self[right_col_name] = (offset+1), (offset + with_space_inside + 2)
+        self[left_col_name], self[right_col_name] = get_left_and_right_for(self, with_space_inside)
       end
+      
       
       # Shortcut for self[depth_column]
       def level
@@ -361,14 +368,21 @@ module Julik
       end
       
       # Get immediate siblings, ordered
-      def siblings
-        self.class.find(:all, :conditions => "#{conditions_for_self_and_siblings} AND id != #{self.id}", 
-          :order => "#{left_col_name} ASC")
+      def siblings(extras = {})
+        scope = {
+          :conditions => "#{conditions_for_self_and_siblings} AND id != #{self.id}", 
+          :order => "#{left_col_name} ASC"
+        }
+        self.class.scoped(scope).find(:all, extras)
       end
       
       # Get myself and siblings, ordered
-      def siblings_and_self
-        self.class.find(:all, :conditions => conditions_for_self_and_siblings, :order => "#{left_col_name} ASC")
+      def siblings_and_self(extras = {})
+        scope = {
+          :conditions => "#{conditions_for_self_and_siblings}", 
+          :order => "#{left_col_name} ASC"
+        }
+        self.class.scoped(scope).find(:all, extras)
       end
       
       # Returns a set of only this entry's immediate children, also ordered by position. Any additional
@@ -380,18 +394,23 @@ module Julik
       
       # Make this item a root node (moves it to the end of the root node list in the same scope)
       def promote_to_root
+        return false if new_record?
+
         transaction do
           my_width = child_count * 2
         
-          # Stash the values because assign_default_left_and_right reassigns them
-          old_left, old_right, old_root = self[left_col_name], self[right_col_name], self[root_column]
-          self[parent_column] = 0 # Signal the root node
-        
-          assign_default_left_and_right(my_width)
+          # Use the copy in the DB to infer keys
+          stale = self.class.find(self.id, :select => [left_col_name, right_col_name, root_column, depth_column].join(', '))
           
-          move_by = self[left_col_name] - old_left
-          move_depth_by = self[depth_column]
-        
+          old_left, old_right, old_root, old_depth = stale[left_col_name], stale[right_col_name], stale[root_column], stale[depth_column]
+          
+          
+          self[parent_column] = 0 # Signal the root node
+          new_left, new_right = get_left_and_right_for(self, my_width)
+          
+          move_by = new_left - old_left
+          move_depth_by = old_depth
+          
           # bring the child and its grandchildren over
           self.class.update_all( 
             "#{depth_column} = #{depth_column} - #{move_depth_by}," +
@@ -401,10 +420,21 @@ module Julik
             "#{scope_condition} AND #{left_col_name} >= #{old_left} AND #{right_col_name} <= #{old_right}" +
             " AND #{root_column} = #{old_root}"
           )
+          
+          # update self, assume valid object for speed
+          self.class.update_all(
+            "#{root_column} = #{self.id}, #{depth_column} = 0, #{parent_column} = 0, #{left_col_name} = #{new_left}, #{right_col_name} = #{new_right}",
+            "id = #{self.id}"
+          )
+          
+          # Blow away the memoized counts
           self.reload
         end
         true
       end
+      
+      
+      private
       
       def register_parent_id_before_update 
         @old_parent_id = self.class.connection.select_value("SELECT #{parent_column} FROM #{self.class.table_name} WHERE id = #{self.id}")
@@ -423,6 +453,15 @@ module Julik
 
         true
       end
+
+      def get_left_and_right_for(item, width)
+        last_root_node = item.class.find(:first, :conditions => "#{item.scope_condition} AND #{item.parent_column} = 0 AND id != #{item.id}",
+          :order => "#{right_col_name} DESC", :limit => 1, :select => [right_col_name]) # spare!
+        offset = last_root_node ? last_root_node[right_col_name] : 0
+        
+        [(offset+1), (offset + width + 2)]
+      end
+      
       
     end #InstanceMethods
   end

@@ -71,6 +71,22 @@ context "A Node with attributes that change in flight should", NodeTest do
     node1.siblings.should.equal [node2, node3]
   end
   
+  specify "should be promoted to root no matter what changes to the attributes are made" do
+    node1, node2, node3 = emit_many(3)
+    node4 = emit :name => "A child", :parent_id => node2.id
+    
+    reload(node4)
+    
+    node4.lft, node4.rgt, node4.depth = 300, 500, 164
+    lambda { node4.promote_to_root}.should.not.raise
+    
+    reload(node4)
+    
+    node4.depth.should.equal 0
+    node4.parent_id.should.equal 0
+    node4._lr.should.equal [9,10]
+  end
+  
   specify "return same all_children no matter what left and right the record has assigned" do
     node1, node2, node3 = emit_many(3)
     children = emit_many(10, :parent_id => node1.id)
@@ -81,6 +97,16 @@ context "A Node with attributes that change in flight should", NodeTest do
     node1.lft, node1.rgt, node1.depth, node1.root_id = 300, 400, 23, 67
     
     node1.all_children.should.equal children
+  end
+end
+
+context "A new Node should", NodeTest do
+  specify "not allow promote_to_root" do
+    Node.new.promote_to_root.should.equal false
+  end
+  
+  specify "not allow move_to" do
+    Node.new.move_to(10).should.equal false
   end
 end
 
