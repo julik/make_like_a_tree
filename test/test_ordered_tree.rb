@@ -108,6 +108,16 @@ context "A new Node should", NodeTest do
   specify "not allow move_to" do
     Node.new.move_to(10).should.equal false
   end
+  
+  specify "identify itself as root if parent is zero or nil" do
+    Node.new.should.be.root
+    Node.new.should.not.be.child
+  end
+  
+  specify "identify itself as a child if parent is not zero" do
+    Node.new(:parent_id => 100).should.be.child
+    Node.new(:parent_id => 100).should.not.be.root
+  end
 end
 
 context "A Node used with OrderedTree should", NodeTest do

@@ -186,30 +186,26 @@ module Julik
       
       # Returns true is this is a root thread.
       def root?
-        @is_root ||= (self[root_column].to_i.zero? ||  (self[root_column] == self.id))
+        self[parent_column].to_i.zero?
       end
 
-      # Returns true is this is a child node
+      # Returns true is this is a child node. Inverse of root?
       def child?
-        parent_id = self[parent_column]
-        @is_child ||= (!(parent_id.to_i.zero?) && (self[left_col_name] > 1) && (self[right_col_name] > self[left_col_name]))
+        !root?
       end
 
-      # Returns true if we have no idea what this is
-      def unknown?
-        !root? && !child?
-      end
-      
       # Used as an after_create callback to apply the parent_id assignment or create a root node
       def apply_parenting_after_create
         reload # Reload to bring in the id
         assign_default_left_and_right
         
-        self.save
-        unless self[parent_column].to_i.zero? # will also capture nil
-          # Load the parent
-          parent = self.class.find(self[parent_column])
-          parent.add_child self
+        transaction do
+          self.save
+          unless self[parent_column].to_i.zero? # will also capture nil
+            # Load the parent
+            parent = self.class.find(self[parent_column])
+            parent.add_child self
+          end
         end
         true
       end
